@@ -3,7 +3,6 @@ import os
 import streamlit as st
 from openai import OpenAI
 from dotenv import load_dotenv
-load_dotenv()
 
 from persona import SAMPLE_QUESTIONS, SYSTEM_PROMPT
 
@@ -131,9 +130,15 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# 1순위: 환경변수(.env 포함), 2순위: Streamlit Cloud의 Secrets
 api_key = os.getenv("OPENAI_API_KEY", "").strip()
 if not api_key:
-    st.warning("프로젝트 폴더에 `.env`를 만들고 `OPENAI_API_KEY=...` 를 넣어주세요.")
+    try:
+        api_key = str(st.secrets["OPENAI_API_KEY"]).strip()
+    except Exception:
+        api_key = ""
+if not api_key:
+    st.warning("API 키가 설정되지 않았어요. 관리자에게 알려주세요.")
     st.stop()
 
 client = OpenAI(api_key=api_key)
@@ -171,6 +176,8 @@ if prompt:
             + st.session_state.messages,
         )
         for chunk in stream:
+            if not chunk.choices:
+                continue
             delta = chunk.choices[0].delta.content or ""
             collected.append(delta)
             placeholder.markdown("".join(collected))
